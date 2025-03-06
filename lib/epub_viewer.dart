@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:epub/epubz/epubz.dart' as epubz;
 import 'package:epub/models/book.dart';
 import 'package:epub/models/book_data.dart';
 import 'package:flutter/material.dart';
@@ -15,6 +16,8 @@ class EpubViewer extends StatefulWidget {
 }
 
 class _EpubViewerState extends State<EpubViewer> {
+  int currentChapter = 0;
+
   @override
   initState() {
     super.initState();
@@ -37,6 +40,10 @@ class _EpubViewerState extends State<EpubViewer> {
         .then((value) => value.toBook(100));
   }
 
+  readBook(File book) async {
+    return await epubz.EpubReader.readBook(await book.readAsBytes());
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder(
@@ -45,18 +52,38 @@ class _EpubViewerState extends State<EpubViewer> {
           return snapshot.hasData
               ? Scaffold(
                   appBar: AppBar(title: Text(snapshot.data!.name)),
-                  body: _body(snapshot.data!),
+                  body: _body(snapshot.data!.savedData!.epubFile),
                   drawer: _drawer(snapshot.data!),
                 )
               : const Center(child: CircularProgressIndicator());
         });
   }
 
-  _body(Book book) {
-    return Text(
-      book.chapters.join('\n'),
-      style: const TextStyle(fontSize: 20),
-    );
+  _body(File book) {
+    return FutureBuilder(
+        future: readBook(book),
+        builder: (context, snapshot) {
+          if (snapshot.hasData && snapshot.data is epubz.EpubBook) {
+            final eBook = snapshot.data as epubz.EpubBook;
+            final currentPage = eBook.Chapters?.elementAt(currentChapter).HtmlContent;
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        currentChapter++;
+                      });
+                    },
+                    child: const Text('Next Chapter'),
+                  )
+                ],
+              ),
+            );
+          }
+          return const Center(child: CircularProgressIndicator());
+        });
   }
 
   _drawer(Book book) {
